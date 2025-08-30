@@ -1,5 +1,5 @@
 // Weather Service for OpenWeatherMap API
-const OPENWEATHER_API_KEY = import.meta.env.VITE_weather_api || REACT_APP_weather_api;
+const OPENWEATHER_API_KEY = import.meta.env.VITE_weather_api;
 
 // Debug logging
 console.log('Weather API Key:', OPENWEATHER_API_KEY ? 'Set' : 'Not set');
@@ -18,8 +18,8 @@ export const fetchWaypointWeather = async (coordinates, waypointId) => {
     const [lat, lon] = coordinates;
     
     // Check if API key is available
-    if (!OPENWEATHER_API_KEY || OPENWEATHER_API_KEY === REACT_APP_weather_api) {
-      console.log('Using fallback weather data - no valid API key');
+    if (!OPENWEATHER_API_KEY) {
+      console.log('Using fallback weather data - no API key provided');
       return generateFallbackWeatherData(coordinates, waypointId);
     }
     

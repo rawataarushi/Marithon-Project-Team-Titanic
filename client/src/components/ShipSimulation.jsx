@@ -324,70 +324,6 @@ const ShipSimulation = ({
           </div>
         </div>
 
-        {/* Test Weather Button */}
-        <div>
-          <button
-            onClick={async () => {
-              console.log('Testing weather fetch...');
-              try {
-                const testCoord = selectedRoute.coordinates[0];
-                const testData = await fetchWaypointWeather(testCoord, 'test-waypoint');
-                console.log('Test weather data:', testData);
-                alert('Weather test successful! Check console for details.');
-              } catch (error) {
-                console.error('Weather test failed:', error);
-                alert('Weather test failed! Check console for details.');
-              }
-            }}
-            style={{
-              padding: '8px 16px',
-              background: '#17a2b8',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: '500'
-            }}
-          >
-            🧪 Test Weather
-          </button>
-        </div>
-
-        {/* Test Calculation Button */}
-        <div>
-          <button
-            onClick={() => {
-              console.log('Testing maritime calculations...');
-              try {
-                const testWeatherData = {
-                  weather: { wind: { speed: 10, deg: 180 }, main: { temp: 20 } },
-                  ocean: { waveHeight: 1.5, swellHeight: 1.0, swellDirection: 180, currentSpeed: 2.0, currentDirection: 90, waterTemp: 20, visibility: 10 }
-                };
-                const testCourse = 90;
-                const testSpeed = calculateWeatherAffectedSpeed(shipSpeed, testWeatherData, testCourse);
-                console.log('Test calculation result:', testSpeed);
-                alert(`Calculation test successful!\nBase Speed: ${shipSpeed} knots\nWeather Speed: ${testSpeed.sog.toFixed(1)} knots\nCheck console for details.`);
-              } catch (error) {
-                console.error('Calculation test failed:', error);
-                alert('Calculation test failed! Check console for details.');
-              }
-            }}
-            style={{
-              padding: '8px 16px',
-              background: '#6f42c1',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: '500'
-            }}
-          >
-            🧮 Test Calculations
-          </button>
-        </div>
-
         {/* Simulation Controls */}
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
           <button
@@ -444,80 +380,141 @@ const ShipSimulation = ({
 
       {/* Simulation Status */}
       <div style={{ 
-        padding: '20px', 
-        background: `linear-gradient(135deg, ${selectedRoute.color}15, ${selectedRoute.color}05)`, 
-        borderRadius: '8px',
-        border: `2px solid ${selectedRoute.color}30`
+        padding: '24px', 
+        background: `linear-gradient(135deg, ${selectedRoute.color}08, ${selectedRoute.color}15)`, 
+        borderRadius: '16px',
+        border: `2px solid ${selectedRoute.color}20`,
+        boxShadow: '0 4px 16px rgba(0,0,0,0.08)'
       }}>
-        <h4 style={{ margin: '0 0 15px 0', color: selectedRoute.color, fontSize: '1.1rem', textAlign: 'center' }}>
+        <h4 style={{ 
+          margin: '0 0 20px 0', 
+          color: selectedRoute.color, 
+          fontSize: '1.2rem', 
+          textAlign: 'center',
+          fontWeight: '700',
+          textShadow: '0 1px 2px rgba(0,0,0,0.1)'
+        }}>
           🚢 {selectedRoute.name} - Simulation Status
         </h4>
         
         {/* Status Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '20px' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '24px', color: '#FF6B35', marginBottom: '5px' }}>📍</div>
-            <div style={{ fontSize: '14px', color: '#666' }}>Current Position</div>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+          gap: '20px', 
+          marginBottom: '24px' 
+        }}>
+          <div style={{ 
+            textAlign: 'center',
+            background: 'linear-gradient(135deg, #fff, #f8f9fa)',
+            padding: '16px',
+            borderRadius: '12px',
+            border: '1px solid rgba(0,0,0,0.05)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+            transition: 'all 0.3s ease'
+          }}>
+            <div style={{ fontSize: '28px', color: '#FF6B35', marginBottom: '8px' }}>📍</div>
+            <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px', fontWeight: '500' }}>Current Position</div>
             <div style={{ fontSize: '18px', fontWeight: 'bold', color: selectedRoute.color }}>
               Waypoint {shipPosition + 1} of {selectedRoute.coordinates.length}
             </div>
           </div>
           
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '24px', color: '#28a745', marginBottom: '5px' }}>📊</div>
-            <div style={{ fontSize: '14px', color: '#666' }}>Progress</div>
+          <div style={{ 
+            textAlign: 'center',
+            background: 'linear-gradient(135deg, #fff, #f8f9fa)',
+            padding: '16px',
+            borderRadius: '12px',
+            border: '1px solid rgba(0,0,0,0.05)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+            transition: 'all 0.3s ease'
+          }}>
+            <div style={{ fontSize: '28px', color: '#28a745', marginBottom: '8px' }}>📊</div>
+            <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px', fontWeight: '500' }}>Progress</div>
             <div style={{ fontSize: '18px', fontWeight: 'bold', color: selectedRoute.color }}>
               {simulationProgress.toFixed(1)}%
             </div>
           </div>
           
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '24px', color: '#dc3545', marginBottom: '5px' }}>⚡</div>
-            <div style={{ fontSize: '14px', color: '#666' }}>Current Speed</div>
+          <div style={{ 
+            textAlign: 'center',
+            background: 'linear-gradient(135deg, #fff, #f8f9fa)',
+            padding: '16px',
+            borderRadius: '12px',
+            border: '1px solid rgba(0,0,0,0.05)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+            transition: 'all 0.3s ease'
+          }}>
+            <div style={{ fontSize: '28px', color: '#dc3545', marginBottom: '8px' }}>⚡</div>
+            <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px', fontWeight: '500' }}>Current Speed</div>
             <div style={{ fontSize: '18px', fontWeight: 'bold', color: selectedRoute.color }}>
               {currentWeatherAffectedSpeed > 0 ? currentWeatherAffectedSpeed.toFixed(1) : shipSpeed} knots
             </div>
             {currentWeatherAffectedSpeed > 0 && (
-              <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+              <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
                 Weather Impact: {(currentWeatherAffectedSpeed - shipSpeed).toFixed(1)} kn
               </div>
             )}
           </div>
           
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '24px', color: '#ff9800', marginBottom: '5px' }}>⛽</div>
-            <div style={{ fontSize: '14px', color: '#666' }}>Fuel Consumption</div>
+          <div style={{ 
+            textAlign: 'center',
+            background: 'linear-gradient(135deg, #fff, #f8f9fa)',
+            padding: '16px',
+            borderRadius: '12px',
+            border: '1px solid rgba(0,0,0,0.05)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+            transition: 'all 0.3s ease'
+          }}>
+            <div style={{ fontSize: '28px', color: '#ff9800', marginBottom: '8px' }}>⛽</div>
+            <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px', fontWeight: '500' }}>Fuel Consumption</div>
             <div style={{ fontSize: '18px', fontWeight: 'bold', color: selectedRoute.color }}>
               {currentWeatherAffectedSpeed > 0 ? 'Calculating...' : 'N/A'}
             </div>
             {currentWeatherAffectedSpeed > 0 && (
-              <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+              <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
                 Based on weather conditions
               </div>
             )}
           </div>
           
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '24px', color: '#28a745', marginBottom: '5px' }}>💰</div>
-            <div style={{ fontSize: '14px', color: '#666' }}>Route Cost</div>
+          <div style={{ 
+            textAlign: 'center',
+            background: 'linear-gradient(135deg, #fff, #f8f9fa)',
+            padding: '16px',
+            borderRadius: '12px',
+            border: '1px solid rgba(0,0,0,0.05)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+            transition: 'all 0.3s ease'
+          }}>
+            <div style={{ fontSize: '28px', color: '#28a745', marginBottom: '8px' }}>💰</div>
+            <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px', fontWeight: '500' }}>Route Cost</div>
             <div style={{ fontSize: '18px', fontWeight: 'bold', color: selectedRoute.color }}>
               {currentWeatherAffectedSpeed > 0 ? 'Calculating...' : 'N/A'}
             </div>
             {currentWeatherAffectedSpeed > 0 && (
-              <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+              <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
                 From current waypoint
               </div>
             )}
           </div>
           
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '24px', color: '#ff9800', marginBottom: '5px' }}>⏱️</div>
-            <div style={{ fontSize: '14px', color: '#666' }}>Status</div>
+          <div style={{ 
+            textAlign: 'center',
+            background: 'linear-gradient(135deg, #fff, #f8f9fa)',
+            padding: '16px',
+            borderRadius: '12px',
+            border: '1px solid rgba(0,0,0,0.05)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+            transition: 'all 0.3s ease'
+          }}>
+            <div style={{ fontSize: '28px', color: '#ff9800', marginBottom: '8px' }}>⏱️</div>
+            <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px', fontWeight: '500' }}>Status</div>
             <div style={{ fontSize: '18px', fontWeight: 'bold', color: selectedRoute.color }}>
               {isSimulationRunning ? '🔄 Moving' : simulationProgress === 100 ? '✅ Completed' : '⏸️ Stopped'}
             </div>
             {isSimulationRunning && (
-              <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+              <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
                 ⏳ Waiting 2s at waypoint
               </div>
             )}
@@ -559,23 +556,6 @@ const ShipSimulation = ({
               )}
             </div>
           </div>
-        </div>
-
-        {/* Debug Info */}
-        <div style={{ 
-          marginBottom: '15px', 
-          padding: '10px', 
-          background: '#f8f9fa', 
-          borderRadius: '6px',
-          fontSize: '11px',
-          fontFamily: 'monospace'
-        }}>
-          <strong>Debug Info:</strong><br/>
-          Waypoint Data Count: {Object.keys(waypointData).length}<br/>
-          Current Waypoint: {shipPosition}<br/>
-          Has Current Weather: {String(!!currentWaypointWeather)}<br/>
-          Weather Data Keys: {currentWaypointWeather ? Object.keys(currentWaypointWeather) : 'None'}<br/>
-          All Waypoint Keys: {Object.keys(waypointData).slice(0, 5).join(', ')}...
         </div>
 
         {/* Travel Time Information */}

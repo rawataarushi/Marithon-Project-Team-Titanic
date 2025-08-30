@@ -13,8 +13,10 @@ The simulation requires an OpenWeatherMap API key for weather data. To get one:
 3. Get your API key
 4. Create a `.env` file in the `client` directory with:
    ```
-   REACT_APP_OPENWEATHER_API_KEY=your_actual_api_key_here
+   VITE_weather_api=your_actual_api_key_here
    ```
+
+**Important**: Since this project uses Vite (not Create React App), environment variables must be prefixed with `VITE_` instead of `REACT_APP_`.
 
 ### 2. Install Dependencies
 
@@ -25,7 +27,7 @@ npm install
 ### 3. Start the Application
 
 ```bash
-npm start
+npm run dev
 ```
 
 ## Features
@@ -45,6 +47,11 @@ npm start
 
 ## Troubleshooting
 
+### White Screen / Not Loading
+- **Check environment variable**: Ensure your `.env` file uses `VITE_weather_api` (not `REACT_APP_weather_api`)
+- **Restart server**: After changing `.env`, restart the development server
+- **Check console**: Open browser console (F12) for error messages
+
 ### Ship Not Moving
 - Check that you have a valid OpenWeatherMap API key
 - Use the "Test Weather" and "Test Calculations" buttons to verify functionality
@@ -54,6 +61,18 @@ npm start
 - Ensure the API key is properly set in the `.env` file
 - The simulation uses fallback weather data if API calls fail
 - Check that all required dependencies are installed
+
+## Environment Variable Setup
+
+**Correct format for Vite:**
+```env
+VITE_weather_api=your_api_key_here
+```
+
+**Wrong format (will not work):**
+```env
+REACT_APP_weather_api=your_api_key_here
+```
 
 ## Technical Details
 

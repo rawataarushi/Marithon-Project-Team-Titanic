@@ -5,17 +5,31 @@
   min-height: 100vh;
   overflow-x: hidden;
   overflow-y: auto;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 .header {
-  background: linear-gradient(135deg, #2c3e50 60%, #217A8A 100%);
+  background: linear-gradient(135deg, #2c3e50 0%, #217A8A 50%, #1a5f73 100%);
   color: #fff;
   padding: 32px 20px 20px 20px;
-  box-shadow: 0 4px 24px rgba(44, 62, 80, 0.10);
+  box-shadow: 0 8px 32px rgba(44, 62, 80, 0.15);
   text-align: center;
   width: 100%;
   box-sizing: border-box;
   flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="waves" x="0" y="0" width="100" height="20" patternUnits="userSpaceOnUse"><path d="M0 10 Q25 5, 50 10 T100 10" stroke="rgba(255,255,255,0.1)" fill="none" stroke-width="1"/></pattern></defs><rect width="100" height="100" fill="url(%23waves)"/></svg>');
+  opacity: 0.3;
 }
 
 .header h1 {
@@ -23,6 +37,9 @@
   font-weight: 800;
   margin: 0 0 12px 0;
   letter-spacing: 0.01em;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  position: relative;
+  z-index: 1;
 }
 
 .header p {
@@ -30,6 +47,9 @@
   font-weight: 400;
   opacity: 0.93;
   margin: 0;
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
 .main-content {
@@ -49,9 +69,9 @@
 }
 
 .panel {
-  background: #fff;
+  background: linear-gradient(145deg, #ffffff, #f8f9fa);
   border-radius: 20px 20px 0 0;
-  box-shadow: 0 8px 32px rgba(44, 62, 80, 0.12);
+  box-shadow: 0 12px 40px rgba(44, 62, 80, 0.15), 0 4px 12px rgba(0,0,0,0.08);
   padding: 24px 20px 20px 20px;
   width: 100%;
   max-width: 1000px;
@@ -63,6 +83,7 @@
   z-index: 2;
   margin: 0 auto;
   flex-shrink: 0;
+  border: 1px solid rgba(33, 122, 138, 0.1);
 }
 
 .panel-section {
@@ -75,6 +96,7 @@
   color: #217A8A;
   margin-bottom: 16px;
   letter-spacing: 0.01em;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
 .route-toggles label {
@@ -86,13 +108,17 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  transition: background 0.2s;
-  padding: 6px 0;
+  transition: all 0.3s ease;
+  padding: 8px 12px;
   border-radius: 8px;
+  border: 1px solid transparent;
 }
 
 .route-toggles label:hover {
-  background: #f3fafd;
+  background: linear-gradient(135deg, #f3fafd, #e3f2fd);
+  border-color: rgba(33, 122, 138, 0.2);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(33, 122, 138, 0.1);
 }
 
 .route-toggles input[type="checkbox"] {
@@ -100,6 +126,7 @@
   margin-right: 4px;
   width: 18px;
   height: 18px;
+  transform: scale(1.1);
 }
 
 .route-indicator {
@@ -107,11 +134,13 @@
   height: 5px;
   border-radius: 3px;
   display: inline-block;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 
 .route-indicator--solid {
-  background: #FF4444;
+  background: linear-gradient(90deg, #FF4444, #ff6666);
 }
+
 .route-indicator--dotted {
   background: repeating-linear-gradient(
     to right,
@@ -123,13 +152,19 @@
 }
 
 .route-info__item {
-  background: #f6fbff;
+  background: linear-gradient(135deg, #f6fbff, #e3f2fd);
   border-radius: 14px;
   padding: 18px 18px 12px 18px;
   margin-bottom: 18px;
-  box-shadow: 0 2px 8px rgba(44, 62, 80, 0.04);
-  border: 1px solid #e3f0ff;
+  box-shadow: 0 4px 16px rgba(44, 62, 80, 0.08);
+  border: 1px solid rgba(33, 122, 138, 0.15);
   text-align: center;
+  transition: all 0.3s ease;
+}
+
+.route-info__item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(44, 62, 80, 0.12);
 }
 
 .route-info__item h4 {
@@ -147,13 +182,14 @@
 
 .status {
   display: inline-block;
-  background: #eafaf1;
+  background: linear-gradient(135deg, #eafaf1, #c8e6c9);
   color: #27ae60;
   border-radius: 8px;
-  padding: 2px 12px;
+  padding: 4px 12px;
   font-size: 1rem;
   font-weight: 600;
   margin-left: 6px;
+  border: 1px solid rgba(39, 174, 96, 0.2);
 }
 
 .legend {
@@ -169,6 +205,13 @@
   gap: 10px;
   font-size: 1.01rem;
   color: #34495e;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.2s ease;
+}
+
+.legend-item:hover {
+  background: rgba(33, 122, 138, 0.05);
 }
 
 .legend-marker {
@@ -176,14 +219,15 @@
   height: 16px;
   border-radius: 50%;
   border: 2px solid #fff;
-  box-shadow: 0 1px 2px rgba(44, 62, 80, 0.08);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
 }
 
 .legend-marker--start {
-  background: #28a745;
+  background: linear-gradient(135deg, #28a745, #20c997);
 }
+
 .legend-marker--end {
-  background: #dc3545;
+  background: linear-gradient(135deg, #dc3545, #fd7e14);
 }
 
 .map-container {
@@ -191,9 +235,9 @@
   width: 100%;
   height: 600px;
   min-height: 600px;
-  background: #fff;
+  background: linear-gradient(145deg, #ffffff, #f8f9fa);
   border-radius: 0 0 20px 20px;
-  box-shadow: 0 8px 32px rgba(44, 62, 80, 0.12);
+  box-shadow: 0 12px 40px rgba(44, 62, 80, 0.15), 0 4px 12px rgba(0,0,0,0.08);
   overflow: hidden;
   padding: 0;
   display: block;
@@ -201,6 +245,7 @@
   margin: 0 auto;
   max-width: 1000px;
   position: relative;
+  border: 1px solid rgba(33, 122, 138, 0.1);
 }
 
 .leaflet-container {
@@ -226,17 +271,28 @@
 }
 
 .footer {
-  background: #2c3e50;
+  background: linear-gradient(135deg, #2c3e50, #34495e);
   color: #fff;
   padding: 16px 20px;
   text-align: center;
   font-size: 0.9rem;
   letter-spacing: 0.01em;
   margin-top: 0;
-  box-shadow: 0 -2px 12px rgba(44, 62, 80, 0.06);
+  box-shadow: 0 -4px 16px rgba(44, 62, 80, 0.1);
   width: 100%;
   box-sizing: border-box;
   flex-shrink: 0;
+  position: relative;
+}
+
+.footer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
 }
 
 @media (max-width: 900px) {
@@ -287,4 +343,41 @@
   .map-container {
     height: 350px;
   }
+}
+
+/* Animation for progress bars */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Smooth transitions for all interactive elements */
+* {
+  transition: all 0.2s ease;
+}
+
+/* Enhanced focus states for accessibility */
+button:focus,
+input:focus {
+  outline: 2px solid #217A8A;
+  outline-offset: 2px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #217A8A, #1a5f73);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #1a5f73, #217A8A);
 }

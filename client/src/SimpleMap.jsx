@@ -42,6 +42,9 @@ const portIcon = L.divIcon({
 });
 
 export default function SimpleMap() {
+  const [error, setError] = useState(null);
+  const [isMapReady, setIsMapReady] = useState(false);
+  
   const [visibleRoutes, setVisibleRoutes] = useState({
     1: true,
     2: true
@@ -59,6 +62,50 @@ export default function SimpleMap() {
   const [simulationProgress, setSimulationProgress] = useState(0); // 0 to 100
   const [currentWeatherAffectedSpeed, setCurrentWeatherAffectedSpeed] = useState(0); // current speed affected by weather
   const [currentWaypointWeather, setCurrentWaypointWeather] = useState(null); // current waypoint weather data
+
+  useEffect(() => {
+    try {
+      console.log('SimpleMap component mounted');
+      setIsMapReady(true);
+    } catch (err) {
+      console.error('Error in SimpleMap useEffect:', err);
+      setError(err);
+    }
+  }, []);
+
+  if (error) {
+    return (
+      <div style={{ 
+        padding: '20px', 
+        textAlign: 'center', 
+        color: 'red',
+        background: '#fff',
+        borderRadius: '12px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+        margin: '20px'
+      }}>
+        <h2>Map Error</h2>
+        <p>{error.message}</p>
+        <button onClick={() => window.location.reload()}>Reload Page</button>
+      </div>
+    );
+  }
+
+  if (!isMapReady) {
+    return (
+      <div style={{ 
+        padding: '20px', 
+        textAlign: 'center',
+        background: '#fff',
+        borderRadius: '12px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+        margin: '20px'
+      }}>
+        <h2>Loading Map...</h2>
+        <p>Please wait while the map initializes.</p>
+      </div>
+    );
+  }
 
   const handleRouteClick = (route) => {
     setSelectedRoute(selectedRoute?.id === route.id ? null : route);
