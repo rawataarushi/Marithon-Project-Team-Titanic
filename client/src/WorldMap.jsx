@@ -148,9 +148,9 @@ export default function WorldMap() {
   });
 
   return (
-    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
+    <div style={{ width: "100%", minHeight: "100vh", display: "flex", flexDirection: "column", boxSizing: "border-box" }}>
       {/* Panel */}
-      <div className="panel" style={{ width: "100%", maxWidth: 900, margin: "0 auto" }}>
+      <div className="panel" style={{ width: "100%", maxWidth: 900, margin: "0 auto", boxSizing: "border-box" }}>
         <div className="panel-section">
           <div className="panel-title">Route Controls</div>
           <div className="route-toggles">
@@ -223,7 +223,7 @@ export default function WorldMap() {
         </div>
       </div>
       {/* Map */}
-      <div className="map-container">
+      <div className="map-container" style={{ boxSizing: "border-box" }}>
         <MapContainer
           center={[20, 50]}
           zoom={2}
