@@ -5,7 +5,10 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    host: "0.0.0.0",                // listen on all addresses, required for Render
-    port: process.env.PORT || 5173, // use Render's assigned port, fallback to 5173 locally
+    host: "0.0.0.0",
+    port: process.env.PORT || 5173,
+    allowedHosts: [
+      "marithon-team-titanic-nvxw.onrender.com", // allow your Render domain
+    ],
   },
 })
