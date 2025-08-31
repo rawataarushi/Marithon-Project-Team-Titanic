@@ -19,6 +19,8 @@ const ShipSimulation = ({
   const [simulationIntervalRef, setSimulationIntervalRef] = useState(null);
   const [totalTravelTime, setTotalTravelTime] = useState(0);
   const [currentSegmentTime, setCurrentSegmentTime] = useState(0);
+  const [currentFuelConsumption, setCurrentFuelConsumption] = useState(null);
+  const [currentRouteCost, setCurrentRouteCost] = useState(null);
 
   // Start simulation with weather-based speed calculations
   const startSimulation = async () => {
@@ -155,14 +157,17 @@ const ShipSimulation = ({
       const weatherSpeed = calculateWeatherAffectedSpeed(shipSpeed, waypointInfo, course);
       console.log(`Weather-affected speed calculated:`, weatherSpeed);
       
-      // Calculate fuel consumption and cost estimation
-      const fuelConsumption = calculateFuelConsumption(weatherSpeed.sog, waypointIndex, selectedRoute.coordinates.length);
-      const routeCost = calculateRouteCost(fuelConsumption, waypointIndex, selectedRoute.coordinates.length);
+      // Calculate fuel consumption and cost estimation with weather data
+      const fuelConsumption = calculateFuelConsumption(weatherSpeed.sog, waypointIndex, selectedRoute.coordinates.length, waypointInfo);
+      const routeCost = calculateRouteCost(fuelConsumption, waypointIndex, selectedRoute.coordinates.length, waypointInfo);
       
       console.log(`Fuel consumption: ${fuelConsumption.current.toFixed(2)} kg/h, Route cost: $${routeCost.total.toFixed(2)}`);
+      console.log(`Weather multiplier: ${fuelConsumption.weatherMultiplier.toFixed(2)}x, Cost breakdown:`, routeCost.breakdown);
       
       setCurrentWeatherAffectedSpeed(weatherSpeed.sog);
       setCurrentWaypointWeather(waypointInfo);
+      setCurrentFuelConsumption(fuelConsumption);
+      setCurrentRouteCost(routeCost);
       
       // Update parent component
       const updateData = {
@@ -189,7 +194,7 @@ const ShipSimulation = ({
   };
 
   // Calculate fuel consumption based on weather conditions and speed
-  const calculateFuelConsumption = (weatherSpeed, currentWaypointIndex, totalWaypoints) => {
+  const calculateFuelConsumption = (weatherSpeed, currentWaypointIndex, totalWaypoints, weatherData = null) => {
     const baseFuelConsumption = 1260; // kg/h at base speed (20 knots)
     const remainingWaypoints = totalWaypoints - currentWaypointIndex;
     
@@ -198,23 +203,43 @@ const ShipSimulation = ({
     const speedFactor = Math.max(0.5, weatherSpeed / shipSpeed); // Speed ratio
     const resistanceFactor = 1 + (Math.abs(weatherSpeed - shipSpeed) / shipSpeed) * 0.5; // Resistance impact
     
-    // Calculate fuel consumption for current waypoint
-    const currentFuelConsumption = baseFuelConsumption * resistanceFactor / speedFactor;
+    // Additional weather-based fuel adjustments
+    let weatherFuelMultiplier = 1.0;
+    if (weatherData && weatherData.weather && weatherData.ocean) {
+      const windSpeed = weatherData.weather.wind?.speed || 0;
+      const waveHeight = weatherData.ocean.waveHeight || 0;
+      
+      // High winds increase fuel consumption
+      if (windSpeed > 15) weatherFuelMultiplier *= 1.2;
+      else if (windSpeed > 10) weatherFuelMultiplier *= 1.1;
+      
+      // High waves increase fuel consumption
+      if (waveHeight > 3) weatherFuelMultiplier *= 1.25;
+      else if (waveHeight > 2) weatherFuelMultiplier *= 1.15;
+    }
     
-    // Estimate remaining fuel for the route
+    // Calculate fuel consumption for current waypoint
+    const currentFuelConsumption = baseFuelConsumption * resistanceFactor * weatherFuelMultiplier / speedFactor;
+    
+    // Estimate remaining fuel for the route (more accurate calculation)
     const estimatedRemainingFuel = currentFuelConsumption * remainingWaypoints * 2; // 2 hours per waypoint
     
     return {
       current: currentFuelConsumption,
       remaining: estimatedRemainingFuel,
-      total: currentFuelConsumption + estimatedRemainingFuel
+      total: currentFuelConsumption + estimatedRemainingFuel,
+      weatherMultiplier: weatherFuelMultiplier,
+      speedFactor: speedFactor,
+      resistanceFactor: resistanceFactor
     };
   };
 
   // Calculate overall route cost at current waypoint
-  const calculateRouteCost = (fuelConsumption, currentWaypointIndex, totalWaypoints) => {
+  const calculateRouteCost = (fuelConsumption, currentWaypointIndex, totalWaypoints, weatherData = null) => {
     const fuelPrice = 0.8; // USD per kg (marine fuel oil price)
     const operationalCost = 5000; // USD per hour (crew, maintenance, etc.)
+    const portFees = 15000; // USD per port call
+    const canalFees = selectedRoute?.style === 'dashed' ? 500000 : 0; // Suez Canal fees
     
     const remainingWaypoints = totalWaypoints - currentWaypointIndex;
     const remainingHours = remainingWaypoints * 2; // 2 hours per waypoint
@@ -225,13 +250,45 @@ const ShipSimulation = ({
     // Operational cost
     const operationalCostTotal = operationalCost * remainingHours;
     
+    // Port fees (only for major ports)
+    const majorPortsRemaining = selectedRoute?.ports?.filter((port, index) => 
+      index > currentWaypointIndex && port.type === 'major'
+    ).length || 0;
+    const portFeesTotal = majorPortsRemaining * portFees;
+    
+    // Canal fees (if applicable and not yet passed)
+    const canalFeesTotal = canalFees;
+    
+    // Weather-related additional costs
+    let weatherCostMultiplier = 1.0;
+    if (weatherData && weatherData.weather && weatherData.ocean) {
+      const windSpeed = weatherData.weather.wind?.speed || 0;
+      const waveHeight = weatherData.ocean.waveHeight || 0;
+      
+      if (windSpeed > 15 || waveHeight > 3) {
+        weatherCostMultiplier = 1.1; // 10% additional cost for severe conditions
+      }
+    }
+    
     // Total route cost from current waypoint to destination
-    const totalRouteCost = fuelCost + operationalCostTotal;
+    const baseCost = fuelCost + operationalCostTotal + portFeesTotal + canalFeesTotal;
+    const totalRouteCost = baseCost * weatherCostMultiplier;
     
     return {
       fuelCost: fuelCost,
       operationalCost: operationalCostTotal,
-      total: totalRouteCost
+      portFees: portFeesTotal,
+      canalFees: canalFeesTotal,
+      weatherMultiplier: weatherCostMultiplier,
+      baseCost: baseCost,
+      total: totalRouteCost,
+      breakdown: {
+        fuel: fuelCost,
+        operational: operationalCostTotal,
+        ports: portFeesTotal,
+        canal: canalFeesTotal,
+        weather: baseCost * (weatherCostMultiplier - 1)
+      }
     };
   };
 
@@ -253,6 +310,8 @@ const ShipSimulation = ({
     setCurrentWaypointWeather(null);
     setTotalTravelTime(0);
     setCurrentSegmentTime(0);
+    setCurrentFuelConsumption(null);
+    setCurrentRouteCost(null);
     onSimulationUpdate?.({
       isRunning: false,
       position: 0,
@@ -469,11 +528,11 @@ const ShipSimulation = ({
             <div style={{ fontSize: '28px', color: '#ff9800', marginBottom: '8px' }}>⛽</div>
             <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px', fontWeight: '500' }}>Fuel Consumption</div>
             <div style={{ fontSize: '18px', fontWeight: 'bold', color: selectedRoute.color }}>
-              {currentWeatherAffectedSpeed > 0 ? 'Calculating...' : 'N/A'}
+              {currentFuelConsumption ? `${currentFuelConsumption.current.toFixed(0)} kg/h` : 'N/A'}
             </div>
-            {currentWeatherAffectedSpeed > 0 && (
+            {currentFuelConsumption && (
               <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
-                Based on weather conditions
+                {currentFuelConsumption.weatherMultiplier > 1 ? `+${((currentFuelConsumption.weatherMultiplier - 1) * 100).toFixed(0)}% weather` : 'Normal conditions'}
               </div>
             )}
           </div>
@@ -490,11 +549,11 @@ const ShipSimulation = ({
             <div style={{ fontSize: '28px', color: '#28a745', marginBottom: '8px' }}>💰</div>
             <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px', fontWeight: '500' }}>Route Cost</div>
             <div style={{ fontSize: '18px', fontWeight: 'bold', color: selectedRoute.color }}>
-              {currentWeatherAffectedSpeed > 0 ? 'Calculating...' : 'N/A'}
+              {currentRouteCost ? `$${currentRouteCost.total.toFixed(0)}` : 'N/A'}
             </div>
-            {currentWeatherAffectedSpeed > 0 && (
+            {currentRouteCost && (
               <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
-                From current waypoint
+                {currentRouteCost.weatherMultiplier > 1 ? `+${((currentRouteCost.weatherMultiplier - 1) * 100).toFixed(0)}% weather` : 'Base cost'}
               </div>
             )}
           </div>

@@ -9,6 +9,103 @@ import { fetchWaypointWeather, getWeatherIcon, getWindArrow, getDirectionName } 
 import { calculateWeatherAffectedSpeed } from './utils/maritimeCalculations';
 import WeatherSpeedDisplay from './components/WeatherSpeedDisplay';
 import ShipSimulation from './components/ShipSimulation';
+import RouteCostAnalysis from './components/RouteCostAnalysis';
+
+// Import calculation functions from ShipSimulation (we'll need to extract them)
+const calculateFuelConsumption = (weatherSpeed, currentWaypointIndex, totalWaypoints, weatherData = null) => {
+  const baseFuelConsumption = 1260; // kg/h at base speed (20 knots)
+  const remainingWaypoints = totalWaypoints - currentWaypointIndex;
+  
+  // Fuel consumption increases with resistance and decreases with speed
+  // Higher resistance = more power needed = more fuel
+  const speedFactor = Math.max(0.5, weatherSpeed / 20); // Speed ratio (assuming 20 knots base)
+  const resistanceFactor = 1 + (Math.abs(weatherSpeed - 20) / 20) * 0.5; // Resistance impact
+  
+  // Additional weather-based fuel adjustments
+  let weatherFuelMultiplier = 1.0;
+  if (weatherData && weatherData.weather && weatherData.ocean) {
+    const windSpeed = weatherData.weather.wind?.speed || 0;
+    const waveHeight = weatherData.ocean.waveHeight || 0;
+    
+    // High winds increase fuel consumption
+    if (windSpeed > 15) weatherFuelMultiplier *= 1.2;
+    else if (windSpeed > 10) weatherFuelMultiplier *= 1.1;
+    
+    // High waves increase fuel consumption
+    if (waveHeight > 3) weatherFuelMultiplier *= 1.25;
+    else if (waveHeight > 2) weatherFuelMultiplier *= 1.15;
+  }
+  
+  // Calculate fuel consumption for current waypoint
+  const currentFuelConsumption = baseFuelConsumption * resistanceFactor * weatherFuelMultiplier / speedFactor;
+  
+  // Estimate remaining fuel for the route (more accurate calculation)
+  const estimatedRemainingFuel = currentFuelConsumption * remainingWaypoints * 2; // 2 hours per waypoint
+  
+  return {
+    current: currentFuelConsumption,
+    remaining: estimatedRemainingFuel,
+    total: currentFuelConsumption + estimatedRemainingFuel,
+    weatherMultiplier: weatherFuelMultiplier,
+    speedFactor: speedFactor,
+    resistanceFactor: resistanceFactor
+  };
+};
+
+const calculateRouteCost = (fuelConsumption, currentWaypointIndex, totalWaypoints, weatherData = null, routeStyle = 'solid') => {
+  const fuelPrice = 0.8; // USD per kg (marine fuel oil price)
+  const operationalCost = 5000; // USD per hour (crew, maintenance, etc.)
+  const portFees = 15000; // USD per port call
+  const canalFees = routeStyle === 'dashed' ? 500000 : 0; // Suez Canal fees
+  
+  const remainingWaypoints = totalWaypoints - currentWaypointIndex;
+  const remainingHours = remainingWaypoints * 2; // 2 hours per waypoint
+  
+  // Fuel cost
+  const fuelCost = fuelConsumption.total * fuelPrice;
+  
+  // Operational cost
+  const operationalCostTotal = operationalCost * remainingHours;
+  
+  // Port fees (only for major ports)
+  const majorPortsRemaining = Math.max(0, Math.floor(remainingWaypoints / 10)); // Estimate major ports
+  const portFeesTotal = majorPortsRemaining * portFees;
+  
+  // Canal fees (if applicable and not yet passed)
+  const canalFeesTotal = canalFees;
+  
+  // Weather-related additional costs
+  let weatherCostMultiplier = 1.0;
+  if (weatherData && weatherData.weather && weatherData.ocean) {
+    const windSpeed = weatherData.weather.wind?.speed || 0;
+    const waveHeight = weatherData.ocean.waveHeight || 0;
+    
+    if (windSpeed > 15 || waveHeight > 3) {
+      weatherCostMultiplier = 1.1; // 10% additional cost for severe conditions
+    }
+  }
+  
+  // Total route cost from current waypoint to destination
+  const baseCost = fuelCost + operationalCostTotal + portFeesTotal + canalFeesTotal;
+  const totalRouteCost = baseCost * weatherCostMultiplier;
+  
+  return {
+    fuelCost: fuelCost,
+    operationalCost: operationalCostTotal,
+    portFees: portFeesTotal,
+    canalFees: canalFeesTotal,
+    weatherMultiplier: weatherCostMultiplier,
+    baseCost: baseCost,
+    total: totalRouteCost,
+    breakdown: {
+      fuel: fuelCost,
+      operational: operationalCostTotal,
+      ports: portFeesTotal,
+      canal: canalFeesTotal,
+      weather: baseCost * (weatherCostMultiplier - 1)
+    }
+  };
+};
 
 // Simple icon fix
 const defaultIcon = L.icon({
@@ -56,6 +153,8 @@ export default function SimpleMap() {
   
   // Ship movement simulation states
   const [selectedRouteForSimulation, setSelectedRouteForSimulation] = useState(null);
+  const [selectedRouteForAnalysis, setSelectedRouteForAnalysis] = useState(null);
+  const [analysisWaypointIndex, setAnalysisWaypointIndex] = useState(0);
   const [shipSpeed, setShipSpeed] = useState(20); // knots
   const [shipPosition, setShipPosition] = useState(0); // current waypoint index
   const [isSimulationRunning, setIsSimulationRunning] = useState(false);
@@ -205,14 +304,14 @@ export default function SimpleMap() {
 
   // Fetch weather data for a specific waypoint
   const fetchWaypointWeatherData = async (coord, waypointId) => {
-    if (waypointData[waypointId]) {
-      return; // Already loaded
-    }
+    console.log(`Fetching weather data for ${waypointId}...`);
     
+    // Always fetch fresh data when waypoint is clicked
     setLoadingWaypoints(prev => ({ ...prev, [waypointId]: true }));
     
     try {
       const data = await fetchWaypointWeather(coord, waypointId);
+      console.log(`Weather data received for ${waypointId}:`, data);
       setWaypointData(prev => ({ ...prev, [waypointId]: data }));
     } catch (error) {
       console.error('Error fetching waypoint data:', error);
@@ -242,6 +341,11 @@ export default function SimpleMap() {
             100% { opacity: 1; }
           }
           
+          @keyframes loading {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(200%); }
+          }
+          
           .ship-simulation-marker {
             animation: ${isSimulationRunning ? 'pulse 1s infinite' : 'none'};
             transition: all 0.3s ease;
@@ -250,6 +354,15 @@ export default function SimpleMap() {
           .ship-simulation-marker:hover {
             transform: scale(1.2);
             z-index: 1001;
+          }
+          
+          .waypoint-marker {
+            transition: all 0.2s ease;
+          }
+          
+          .waypoint-marker:hover {
+            transform: scale(1.5);
+            z-index: 1000;
           }
         `}
       </style>
@@ -517,25 +630,38 @@ export default function SimpleMap() {
                           position={coord}
                           icon={L.divIcon({
                             className: 'waypoint-marker',
-                            html: `<div style="
-                              background-color: ${index === 0 ? '#28a745' : index === route.coordinates.length - 1 ? '#dc3545' : route.color};
-                              width: 12px;
-                              height: 12px;
-                              border-radius: 50%;
-                              border: 3px solid white;
-                              box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-                              cursor: pointer;
-                              transition: all 0.2s ease;
-                            " 
-                            onmouseover="this.style.transform='scale(1.5)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.6)'"
-                            onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 6px rgba(0,0,0,0.4)'"
-                            title="Click for weather data"></div>`,
+                            html: `<div 
+                              data-waypoint-id="${waypointId}"
+                              style="
+                                background-color: ${index === 0 ? '#28a745' : index === route.coordinates.length - 1 ? '#dc3545' : route.color};
+                                width: 12px;
+                                height: 12px;
+                                border-radius: 50%;
+                                border: 3px solid white;
+                                box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+                                cursor: pointer;
+                                transition: all 0.2s ease;
+                                position: relative;
+                              " 
+                              onmouseover="this.style.transform='scale(1.5)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.6)'; this.style.zIndex='1000'"
+                              onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 6px rgba(0,0,0,0.4)'; this.style.zIndex='auto'"
+                              title="Click for real-time weather data"
+                            ></div>`,
                             iconSize: [18, 18],
                             iconAnchor: [9, 9]
                           })}
                           eventHandlers={{
-                            click: () => {
-                              fetchWaypointWeatherData(coord, waypointId);
+                            click: async () => {
+                              console.log(`Waypoint ${index + 1} clicked, fetching weather data...`);
+                              // Immediately fetch weather data when waypoint is clicked
+                              await fetchWaypointWeatherData(coord, waypointId);
+                              // Force a re-render to show the popup with fresh data
+                              setTimeout(() => {
+                                const marker = document.querySelector(`[data-waypoint-id="${waypointId}"]`);
+                                if (marker) {
+                                  marker.click();
+                                }
+                              }, 100);
                             }
                           }}
                         >
@@ -566,7 +692,24 @@ export default function SimpleMap() {
                               {/* Weather and Ocean Data */}
                               {isLoading && (
                                 <div style={{ textAlign: 'center', padding: '20px' }}>
-                                  <div style={{ fontSize: '16px', color: '#666' }}>Loading weather data...</div>
+                                  <div style={{ fontSize: '16px', color: '#666', marginBottom: '10px' }}>🌤️ Fetching real-time weather data...</div>
+                                  <div style={{ fontSize: '12px', color: '#999' }}>Please wait while we get current conditions</div>
+                                  <div style={{ 
+                                    width: '100%', 
+                                    height: '4px', 
+                                    background: '#e9ecef', 
+                                    borderRadius: '2px', 
+                                    marginTop: '10px',
+                                    overflow: 'hidden'
+                                  }}>
+                                    <div style={{ 
+                                      width: '60%', 
+                                      height: '100%', 
+                                      background: 'linear-gradient(90deg, #007bff, #0056b3)',
+                                      borderRadius: '2px',
+                                      animation: 'loading 1.5s ease-in-out infinite'
+                                    }}></div>
+                                  </div>
                                 </div>
                               )}
 
@@ -600,7 +743,7 @@ export default function SimpleMap() {
                                   </div>
 
                                   {/* Ocean Section */}
-                                  <div style={{ padding: '10px', background: '#e8f5e8', borderRadius: '6px' }}>
+                                  <div style={{ marginBottom: '15px', padding: '10px', background: '#e8f5e8', borderRadius: '6px' }}>
                                     <h5 style={{ margin: '0 0 8px 0', color: '#2e7d32', fontSize: '14px' }}>🌊 Ocean Conditions</h5>
                                     {waypointInfo.ocean && (
                                       <div style={{ fontSize: '12px' }}>
@@ -632,9 +775,77 @@ export default function SimpleMap() {
                                     )}
                                   </div>
 
+                                  {/* Cost and Fuel Analysis Section */}
+                                  <div style={{ padding: '10px', background: '#fff3e0', borderRadius: '6px' }}>
+                                    <h5 style={{ margin: '0 0 8px 0', color: '#f57c00', fontSize: '14px' }}>💰 Cost & Fuel Analysis</h5>
+                                    {(() => {
+                                      // Calculate fuel consumption and cost for this waypoint
+                                      const baseSpeed = 20; // knots
+                                      const weatherSpeed = calculateWeatherAffectedSpeed(baseSpeed, waypointInfo, 0);
+                                      const fuelConsumption = calculateFuelConsumption(weatherSpeed.sog, index, route.coordinates.length, waypointInfo);
+                                      const routeCost = calculateRouteCost(fuelConsumption, index, route.coordinates.length, waypointInfo, route.style);
+                                      
+                                      return (
+                                        <div style={{ fontSize: '12px' }}>
+                                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                                            <div>
+                                              <p style={{ margin: '4px 0' }}><strong>Fuel Consumption:</strong> {fuelConsumption.current.toFixed(0)} kg/h</p>
+                                              <p style={{ margin: '4px 0' }}><strong>Weather Impact:</strong> {fuelConsumption.weatherMultiplier > 1 ? `+${((fuelConsumption.weatherMultiplier - 1) * 100).toFixed(0)}%` : 'Normal'}</p>
+                                            </div>
+                                            <div>
+                                              <p style={{ margin: '4px 0' }}><strong>Speed Impact:</strong> {weatherSpeed.sog.toFixed(1)} knots</p>
+                                              <p style={{ margin: '4px 0' }}><strong>Speed Factor:</strong> {(weatherSpeed.sog / baseSpeed * 100).toFixed(0)}%</p>
+                                            </div>
+                                          </div>
+                                          
+                                          {/* Cost Breakdown */}
+                                          <div style={{ marginTop: '8px', padding: '8px', background: '#fff', borderRadius: '4px' }}>
+                                            <p style={{ margin: '4px 0', fontWeight: 'bold' }}>💵 Cost Breakdown (from this waypoint)</p>
+                                            <div style={{ fontSize: '11px' }}>
+                                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span>Fuel Cost:</span>
+                                                <span>${routeCost.breakdown.fuel.toFixed(0)}</span>
+                                              </div>
+                                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span>Operational:</span>
+                                                <span>${routeCost.breakdown.operational.toFixed(0)}</span>
+                                              </div>
+                                              {routeCost.breakdown.ports > 0 && (
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                  <span>Port Fees:</span>
+                                                  <span>${routeCost.breakdown.ports.toFixed(0)}</span>
+                                                </div>
+                                              )}
+                                              {routeCost.breakdown.canal > 0 && (
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                  <span>Canal Fees:</span>
+                                                  <span>${routeCost.breakdown.canal.toFixed(0)}</span>
+                                                </div>
+                                              )}
+                                              {routeCost.breakdown.weather > 0 && (
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#d32f2f' }}>
+                                                  <span>Weather Impact:</span>
+                                                  <span>+${routeCost.breakdown.weather.toFixed(0)}</span>
+                                                </div>
+                                              )}
+                                              <hr style={{ margin: '4px 0', border: 'none', borderTop: '1px solid #ddd' }} />
+                                              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
+                                                <span>Total Cost:</span>
+                                                <span>${routeCost.total.toFixed(0)}</span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
+
                                   {/* Timestamp */}
                                   <div style={{ marginTop: '10px', fontSize: '10px', color: '#666', textAlign: 'center' }}>
-                                    Last updated: {new Date(waypointInfo.timestamp).toLocaleTimeString()}
+                                    <div>🕐 Last updated: {new Date(waypointInfo.timestamp).toLocaleTimeString()}</div>
+                                    <div style={{ fontSize: '9px', color: '#999', marginTop: '2px' }}>
+                                      Real-time weather data from OpenWeatherMap
+                                    </div>
                                   </div>
                                 </div>
                               )}
@@ -662,7 +873,7 @@ export default function SimpleMap() {
 
                               {!waypointInfo && !isLoading && (
                                 <div style={{ textAlign: 'center', padding: '20px' }}>
-                                  <div style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>Click to load weather data</div>
+                                  <div style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>Click to load real-time weather data</div>
                                   <button 
                                     onClick={() => fetchWaypointWeatherData(coord, waypointId)}
                                     style={{ 
@@ -675,14 +886,40 @@ export default function SimpleMap() {
                                       fontSize: '12px'
                                     }}
                                   >
-                                    Load Data
+                                    🌤️ Load Weather Data
+                                  </button>
+                                </div>
+                              )}
+
+                              {waypointInfo && !isLoading && !waypointInfo.error && (
+                                <div style={{ textAlign: 'center', marginTop: '10px' }}>
+                                  <button 
+                                    onClick={() => fetchWaypointWeatherData(coord, waypointId)}
+                                    style={{ 
+                                      padding: '4px 8px', 
+                                      background: '#28a745', 
+                                      color: 'white', 
+                                      border: 'none', 
+                                      borderRadius: '4px', 
+                                      cursor: 'pointer',
+                                      fontSize: '11px'
+                                    }}
+                                  >
+                                    🔄 Refresh Data
                                   </button>
                                 </div>
                               )}
                             </div>
                           </Popup>
                           <Tooltip direction="top">
-                            {index === 0 ? 'Start' : index === route.coordinates.length - 1 ? 'End' : `Waypoint ${index + 1}`}
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontWeight: 'bold' }}>
+                                {index === 0 ? '🚢 Start' : index === route.coordinates.length - 1 ? '🏁 End' : `📍 Waypoint ${index + 1}`}
+                              </div>
+                              <div style={{ fontSize: '11px', marginTop: '2px' }}>
+                                Click for real-time weather data
+                              </div>
+                            </div>
                           </Tooltip>
                         </Marker>
                       );
@@ -870,6 +1107,79 @@ export default function SimpleMap() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Route Cost Analysis Section */}
+        <div style={{ 
+          width: '100%', 
+          background: '#fff', 
+          borderRadius: '12px', 
+          padding: '20px', 
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+          boxSizing: 'border-box'
+        }}>
+          <h3 style={{ margin: '0 0 20px 0', color: '#f57c00', fontSize: '1.3rem', textAlign: 'center' }}>
+            💰 Route Cost & Fuel Analysis
+          </h3>
+
+          {/* Route Selection for Analysis */}
+          <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#34495e' }}>
+              Select Route for Cost Analysis:
+            </label>
+            <select 
+              value={selectedRouteForAnalysis?.id || ''} 
+              onChange={(e) => {
+                const route = routes.find(r => r.id === parseInt(e.target.value));
+                setSelectedRouteForAnalysis(route);
+                setAnalysisWaypointIndex(0);
+              }}
+              style={{
+                width: '300px',
+                padding: '10px',
+                borderRadius: '6px',
+                border: '1px solid #ddd',
+                fontSize: '14px',
+                backgroundColor: '#f8f9fa',
+                marginRight: '10px'
+              }}
+            >
+              <option value="">Choose a route...</option>
+              {routes.map(route => (
+                <option key={route.id} value={route.id}>
+                  {route.name}
+                </option>
+              ))}
+            </select>
+            
+            {selectedRouteForAnalysis && (
+              <select 
+                value={analysisWaypointIndex} 
+                onChange={(e) => setAnalysisWaypointIndex(parseInt(e.target.value))}
+                style={{
+                  width: '150px',
+                  padding: '10px',
+                  borderRadius: '6px',
+                  border: '1px solid #ddd',
+                  fontSize: '14px',
+                  backgroundColor: '#f8f9fa'
+                }}
+              >
+                {selectedRouteForAnalysis.coordinates.map((coord, index) => (
+                  <option key={index} value={index}>
+                    Waypoint {index + 1}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <RouteCostAnalysis
+            selectedRoute={selectedRouteForAnalysis || selectedRouteForSimulation}
+            waypointData={waypointData}
+            currentWaypointIndex={selectedRouteForAnalysis ? analysisWaypointIndex : shipPosition}
+            shipSpeed={shipSpeed}
+          />
         </div>
 
         {/* Ship Movement Simulation Section */}
