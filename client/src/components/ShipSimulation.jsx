@@ -33,6 +33,17 @@ const ShipSimulation = ({
     setTotalTravelTime(0);
     setCurrentWeatherAffectedSpeed(0);
     
+    // Focus on the route on the map
+    setTimeout(() => {
+      const mapContainer = document.querySelector('.leaflet-container');
+      if (mapContainer) {
+        mapContainer.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+      }
+    }, 100);
+    
     const totalWaypoints = selectedRoute.coordinates.length;
     let currentWaypoint = 0;
     

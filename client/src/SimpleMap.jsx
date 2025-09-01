@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -141,6 +141,7 @@ const portIcon = L.divIcon({
 export default function SimpleMap() {
   const [error, setError] = useState(null);
   const [isMapReady, setIsMapReady] = useState(false);
+  const mapRef = useRef(null);
   
   const [visibleRoutes, setVisibleRoutes] = useState({
     1: true,
@@ -210,6 +211,20 @@ export default function SimpleMap() {
     setSelectedRoute(selectedRoute?.id === route.id ? null : route);
   };
 
+  // Function to zoom to route bounds
+  const zoomToRoute = (route) => {
+    if (mapRef.current && route) {
+      const map = mapRef.current;
+      const bounds = L.latLngBounds(route.coordinates);
+      map.fitBounds(bounds, { 
+        padding: [20, 20],
+        maxZoom: 8,
+        animate: true,
+        duration: 1.5
+      });
+    }
+  };
+
   // Handle simulation updates from ShipSimulation component
   const handleSimulationUpdate = (simulationData) => {
     console.log('SimpleMap received simulation update:', simulationData);
@@ -218,6 +233,13 @@ export default function SimpleMap() {
     setShipPosition(simulationData.position);
     setSimulationProgress(simulationData.progress);
     setCurrentWeatherAffectedSpeed(simulationData.weatherSpeed);
+    
+    // Zoom to route when simulation starts
+    if (simulationData.isRunning && selectedRouteForSimulation) {
+      setTimeout(() => {
+        zoomToRoute(selectedRouteForSimulation);
+      }, 200);
+    }
     
     if (simulationData.weatherData) {
       console.log('Setting currentWaypointWeather:', simulationData.weatherData);
@@ -486,6 +508,57 @@ export default function SimpleMap() {
           </div>
         </div>
 
+        {/* Ship Movement Simulation Section */}
+        <div style={{ 
+          width: '100%', 
+          background: '#fff', 
+          borderRadius: '12px', 
+          padding: '20px', 
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+          boxSizing: 'border-box'
+        }}>
+          <h3 style={{ margin: '0 0 20px 0', color: '#FF6B35', fontSize: '1.3rem', textAlign: 'center' }}>
+            🚢 Ship Movement Simulation
+          </h3>
+
+          {/* Route Selection for Simulation */}
+          <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#34495e' }}>
+              Select Route for Simulation:
+            </label>
+            <select 
+              value={selectedRouteForSimulation?.id || ''} 
+              onChange={(e) => {
+                const route = routes.find(r => r.id === parseInt(e.target.value));
+                setSelectedRouteForSimulation(route);
+              }}
+              style={{
+                width: '300px',
+                padding: '10px',
+                borderRadius: '6px',
+                border: '1px solid #ddd',
+                fontSize: '14px',
+                backgroundColor: '#f8f9fa'
+              }}
+            >
+              <option value="">Choose a route...</option>
+              {routes.map(route => (
+                <option key={route.id} value={route.id}>
+                  {route.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Ship Simulation Component */}
+          <ShipSimulation
+            selectedRoute={selectedRouteForSimulation}
+            shipSpeed={shipSpeed}
+            setShipSpeed={setShipSpeed}
+            onSimulationUpdate={handleSimulationUpdate}
+          />
+        </div>
+
         {/* Map and Weather Speed Display Container */}
         <div style={{ 
           display: 'flex', 
@@ -503,6 +576,7 @@ export default function SimpleMap() {
             position: 'relative'
           }}>
             <MapContainer
+              ref={mapRef}
               center={[20, 50]}
               zoom={2}
               style={{ width: '100%', height: '100%' }}
@@ -1182,56 +1256,6 @@ export default function SimpleMap() {
           />
         </div>
 
-        {/* Ship Movement Simulation Section */}
-        <div style={{ 
-          width: '100%', 
-          background: '#fff', 
-          borderRadius: '12px', 
-          padding: '20px', 
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-          boxSizing: 'border-box'
-        }}>
-          <h3 style={{ margin: '0 0 20px 0', color: '#FF6B35', fontSize: '1.3rem', textAlign: 'center' }}>
-            🚢 Ship Movement Simulation
-          </h3>
-
-          {/* Route Selection for Simulation */}
-          <div style={{ marginBottom: '20px', textAlign: 'center' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#34495e' }}>
-              Select Route for Simulation:
-            </label>
-            <select 
-              value={selectedRouteForSimulation?.id || ''} 
-              onChange={(e) => {
-                const route = routes.find(r => r.id === parseInt(e.target.value));
-                setSelectedRouteForSimulation(route);
-              }}
-              style={{
-                width: '300px',
-                padding: '10px',
-                borderRadius: '6px',
-                border: '1px solid #ddd',
-                fontSize: '14px',
-                backgroundColor: '#f8f9fa'
-              }}
-            >
-              <option value="">Choose a route...</option>
-              {routes.map(route => (
-                <option key={route.id} value={route.id}>
-                  {route.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Ship Simulation Component */}
-          <ShipSimulation
-            selectedRoute={selectedRouteForSimulation}
-            shipSpeed={shipSpeed}
-            setShipSpeed={setShipSpeed}
-            onSimulationUpdate={handleSimulationUpdate}
-          />
-        </div>
       </div>
     </>
   );
